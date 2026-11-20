@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance System</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--text:#1e2433;--muted:#6b7280;--line:#e5e7eb;--pri:#0b7285;--pri-t:#fff;--ok:#2f9e44;--bad:#e03131;color-scheme:light}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11161d;--card:#1a212b;--text:#e8ecf3;--muted:#9aa5b5;--line:#2a3340;--pri:#3bc9db;--pri-t:#0d1217;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#11161d;--card:#1a212b;--text:#e8ecf3;--muted:#9aa5b5;--line:#2a3340;--pri:#3bc9db;--pri-t:#0d1217;color-scheme:dark}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-size:1.1rem}h1 span{color:var(--pri)}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+main{max-width:1000px;margin:0 auto;padding:18px}
+input,select,button{font:inherit;color:var(--text);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+input:focus,select:focus{outline:2px solid var(--pri);outline-offset:1px}
+button{cursor:pointer}
+.tab.on,.btn{background:var(--pri);color:var(--pri-t);border-color:var(--pri);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end}
+label{font-size:.8rem;color:var(--muted);display:block}
+label input,label select{width:100%;margin-top:4px}
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+table{width:100%;border-collapse:collapse;min-width:560px}
+th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+.tog{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tog button{border:0;border-radius:0;padding:6px 14px}
+.tog .p.on{background:var(--ok);color:#fff}.tog .a.on{background:var(--bad);color:#fff}
+.pb{display:inline-block;width:110px;height:8px;background:var(--line);border-radius:9px;vertical-align:middle;margin-right:8px;overflow:hidden}
+.pb i{display:block;height:100%;background:var(--ok)}
+.low{color:var(--bad);font-weight:700}.good{color:var(--ok);font-weight:700}
+.msg{margin:10px 0;color:var(--ok);min-height:1.2em}.msg.e{color:var(--bad)}
+.muted{color:var(--muted)}.empty{padding:26px;text-align:center;color:var(--muted)}
+.hint{font-size:.82rem;color:var(--muted);margin-top:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.sh{padding:2px 9px;border-radius:99px;font-size:.75rem;background:var(--line)}
+/* স্টুডেন্ট পেজ: প্রতি ডিপার্টমেন্ট আলাদা বক্সে */
+.dept{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:14px;overflow:hidden}
+.dept>summary{padding:14px 16px;cursor:pointer;font-size:1.02rem;list-style:none;display:flex;justify-content:space-between;gap:8px}
+.dept>summary::-webkit-details-marker{display:none}
+.grp{padding:0 12px 12px}
+.grp h4{margin:12px 4px 8px;font-size:.85rem;color:var(--muted)}
+[hidden]{display:none!important}
+</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="responsive.css">
+</head>
+<body>
+<header>
+  <h1>📋 <span>Attendance</span> System</h1>
+  <nav>
+    <button class="tab on" data-t="take">Take Attendance</button>
+    <button class="tab" data-t="report">Report</button>
+    <button class="tab" data-t="stu">Students</button>
+    <button id="theme" aria-label="Toggle theme">🌓</button>
+  </nav>
+</header>
+<main>
+
+<!-- ১) হাজিরা নেওয়া: তারিখ + ডিপার্টমেন্ট + সেমিস্টার + শিফট + সাবজেক্ট -->
+<section id="take">
+  <div class="card"><div class="filters">
+    <label>Date<input type="date" id="tDate"></label>
+    <label>Department<select id="tDept"></select></label>
+    <label>Semester<select id="tSem"></select></label>
+    <label>Shift<select id="tShift"></select></label>
+    <label>Subject<input id="tSub" list="subs" placeholder="e.g. Networking"></label>
+    <datalist id="subs"></datalist>
+  </div>
+  <!-- <div class="hint">Combined বাছলে Combined হিসেবে যোগ করা সবাই একসাথে আসবে, প্রতি রোলের পাশে তার আসল শিফট (1st/2nd) দেখাবে। হিসাব হবে সবাই মিলিয়ে।</div></div> --> <br>
+  <div class="tw"><table><thead><tr><th>Roll</th><th>Name</th><th>Shift</th><th>Status</th></tr></thead><tbody id="tBody"></tbody></table>
+  <div class="empty" id="tEmpty" hidden>No students for this department, semester and shift. Add some in the Students tab.</div></div>
+  <div class="row">
+    <button id="allP">All Present</button><button id="allA">All Absent</button>
+    <button class="btn" id="saveAtt">Save Attendance</button>
+    <span class="muted" id="cnt"></span>
+  </div>
+  <div class="msg" id="tMsg"></div>
+</section>
+
+<!-- ২) রিপোর্ট -->
+<section id="report" hidden>
+  <div class="card"><div class="filters">
+    <label>From date<input type="date" id="rFrom"></label>
+    <label>To date<input type="date" id="rTo"></label>
+    <label>Department<select id="rDept"></select></label>
+    <label>Semester<select id="rSem"></select></label>
+    <label>Shift<select id="rShift"></select></label>
+    <label>Subject<select id="rSub"><option value="">All subjects</option></select></label>
+  </div>
+  <div class="row"><button class="btn" id="gen">Show Report</button><button id="csv">Export CSV</button><span class="muted" id="rInfo"></span></div></div>
+  <div class="tw"><table><thead><tr><th>Roll</th><th>Name</th><th>Shift</th><th>Classes</th><th>Present</th><th>Attendance</th></tr></thead><tbody id="rBody"></tbody></table>
+  <div class="empty" id="rEmpty">Select a date range and press “Show Report”.</div></div>
+</section>
+
+<!-- ৩) স্টুডেন্ট -->
+<section id="stu" hidden>
+  <div class="card"><div class="filters">
+    <label>Roll<input id="sRoll"></label>
+    <label>Name<input id="sName"></label>
+    <label>Department<input id="sDept" list="depts" placeholder="e.g. CSE"></label>
+    <datalist id="depts"></datalist>
+    <label>Semester<select id="sSem"></select></label>
+    <label>Shift<select id="sShift"></select></label>
+    <label id="sRealW" hidden>Actual shift<select id="sReal"></select></label>
+    <button class="btn" id="sAdd">Add Student</button>
+  </div>
+  <!-- <div class="hint">যে ডিপার্টমেন্টে দুই শিফট একসাথে চলে, Shift এ Combined দিন। তখন "Actual shift" এ ওই স্টুডেন্ট আসলে কোন শিফটের (1st/2nd) সেটা দিন। সবাই একই তালিকায় থাকবে, কিন্তু প্রত্যেকের আসল শিফট লেখা থাকবে।</div> -->
+  <div class="msg" id="sMsg"></div></div>
+
+  <div class="card"><b>Bulk add by roll range</b> <span class="muted">(নাম ছাড়াই শুধু রোল)</span>
+    <div class="filters" style="margin-top:10px">
+      <label>From roll<input id="bFrom" type="number" min="1" value="1"></label>
+      <label>To roll<input id="bTo" type="number" min="1" placeholder="e.g. 60"></label>
+      <label>Department<input id="bDept" list="depts" placeholder="e.g. CSE"></label>
+      <label>Semester<select id="bSem"></select></label>
+      <label>Shift<select id="bShift"></select></label>
+      <label id="bRealW" hidden>Actual shift<select id="bReal"></select></label>
+      <button class="btn" id="bAdd">Add Rolls</button>
+    </div><div class="msg" id="bMsg"></div></div>
+
+  <div class="row" style="margin:0 0 12px"><label style="min-width:200px">Show department<select id="vDept"></select></label></div>
+  <div id="sList"></div>
+</section>
+</main>
+
+<script>
+// ===== ডেটার গঠন =====
+// student = { roll, name, dept, semester, shift }
+// session = { date, subject, dept, semester, shift, marks: { "shift:roll": true/false } }
+const K='att_v3';
+const SHIFTS=['1st','2nd','Combined'];
+const seed={students:[
+ {roll:'01',name:'Rahim Uddin',dept:'CSE',semester:'1',shift:'1st'},{roll:'02',name:'Nusrat Jahan',dept:'CSE',semester:'1',shift:'1st'},
+ {roll:'01',name:'Tanvir Ahmed',dept:'CSE',semester:'1',shift:'2nd'},{roll:'02',name:'Sadia Akter',dept:'CSE',semester:'1',shift:'2nd'},
+ {roll:'01',name:'Karim Hasan',dept:'EEE',semester:'1',shift:'Combined'},{roll:'02',name:'Mim Chowdhury',dept:'EEE',semester:'1',shift:'Combined',real:'2nd'}],sessions:[]};
+let db=load();
+// আসল শিফট (real): Combined স্টুডেন্টের ক্ষেত্রে 1st/2nd; অন্যদের ক্ষেত্রে শিফটই আসল শিফট
+db.students.forEach(s=>{s.real=s.real||(s.shift==='Combined'?'1st':s.shift)});
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem(K));
+    if(d&&d.students&&d.sessions)return d;
+    // আগের সংস্করণ (att_v2) থেকে ডেটা আনা: সবাইকে 1st শিফটে ধরা হয়
+    const o=JSON.parse(localStorage.getItem('att_v2'));
+    if(o&&o.students&&o.sessions){
+      o.students.forEach(s=>s.shift='1st');
+      o.sessions.forEach(s=>{s.shift='1st';const m={};Object.keys(s.marks).forEach(r=>m['1st:'+r]=s.marks[r]);s.marks=m});
+      return o;
+    }
+  }catch(e){}
+  return JSON.parse(JSON.stringify(seed));
+}
+function save(){try{localStorage.setItem(K,JSON.stringify(db))}catch(e){}}
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const pad=n=>String(n).padStart(2,'0');
+const dstr=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const depts=()=>[...new Set(db.students.map(s=>s.dept))].sort();
+const skey=s=>s.shift+':'+s.roll;                         // প্রতি স্টুডেন্টের ইউনিক কী
+const byRoll=(a,b)=>a.roll.localeCompare(b.roll,undefined,{numeric:true});
+// ডিপার্টমেন্ট + সেমিস্টার + শিফট অনুযায়ী ফিল্টার
+// Combined বাছলে Combined হিসেবে যোগ করা সবাই একই তালিকায় আসে (আসল শিফট real এ লেখা থাকে)
+const inClass=(dept,sem,shift)=>db.students
+  .filter(s=>s.dept===dept&&s.semester===sem&&s.shift===shift)
+  .sort(byRoll);
+const find=(date,sub,dept,sem,shift)=>db.sessions.find(x=>x.date===date&&x.dept===dept&&x.semester===sem&&x.shift===shift&&x.subject.toLowerCase()===sub.toLowerCase());
+
+// সেমিস্টার ও শিফটের অপশন
+const semOpts=[1,2,3,4,5,6,7,8].map(n=>`<option>${n}</option>`).join('');
+const shiftOpts=SHIFTS.map(v=>`<option value="${v}">${v==='Combined'?'Combined (1st+2nd)':v+' Shift'}</option>`).join('');
+['tSem','rSem','sSem','bSem'].forEach(id=>$('#'+id).innerHTML=semOpts);
+['tShift','rShift','sShift','bShift'].forEach(id=>$('#'+id).innerHTML=shiftOpts);
+// Combined বাছলেই শুধু "Actual shift" ঘর দেখায়
+const realOpts=['1st','2nd'].map(v=>`<option value="${v}">${v} Shift</option>`).join('');
+$('#sReal').innerHTML=realOpts;$('#bReal').innerHTML=realOpts;
+function togReal(){$('#sRealW').hidden=$('#sShift').value!=='Combined';$('#bRealW').hidden=$('#bShift').value!=='Combined'}
+$('#sShift').onchange=togReal;$('#bShift').onchange=togReal;togReal();
+
+// ===== ট্যাব =====
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));
+  ['take','report','stu'].forEach(id=>$('#'+id).hidden=id!==b.dataset.t);
+  if(b.dataset.t==='report')fillReportSubjects();
+});
+function fillDeptSelects(){
+  const ds=depts(),opts=ds.map(d=>`<option>${esc(d)}</option>`).join('');
+  const t=$('#tDept').value,r=$('#rDept').value,v=$('#vDept').value;
+  $('#tDept').innerHTML=opts;$('#rDept').innerHTML=opts;
+  $('#vDept').innerHTML='<option value="">All departments</option>'+opts;
+  if(t)$('#tDept').value=t;if(r)$('#rDept').value=r;$('#vDept').value=ds.includes(v)?v:'';
+  $('#depts').innerHTML=ds.map(d=>`<option value="${esc(d)}">`).join('');
+  $('#subs').innerHTML=[...new Set(db.sessions.map(s=>s.subject))].map(s=>`<option value="${esc(s)}">`).join('');
+}
+
+// ===== হাজিরা নেওয়া =====
+let cur={};
+function drawTake(){
+  const dept=$('#tDept').value,sem=$('#tSem').value,shift=$('#tShift').value;
+  const list=inClass(dept,sem,shift),ex=find($('#tDate').value,$('#tSub').value.trim(),dept,sem,shift);
+  cur={};list.forEach(s=>cur[skey(s)]=ex&&skey(s) in ex.marks?ex.marks[skey(s)]:true);
+  $('#tEmpty').hidden=list.length>0;
+  $('#tBody').innerHTML=list.map(s=>`<tr><td>${esc(s.roll)}</td><td>${esc(s.name)||'—'}</td><td><span class="sh">${esc(s.real)}</span></td><td><div class="tog" data-k="${esc(skey(s))}"><button class="p">Present</button><button class="a">Absent</button></div></td></tr>`).join('');
+  paint();
+  $('#tMsg').textContent=ex?'Attendance already saved for this class. Changes will update it.':'';$('#tMsg').className='msg';
+}
+function paint(){
+  document.querySelectorAll('#tBody .tog').forEach(t=>{const v=cur[t.dataset.k];t.querySelector('.p').classList.toggle('on',v);t.querySelector('.a').classList.toggle('on',!v)});
+  const p=Object.values(cur).filter(Boolean).length;$('#cnt').textContent=`Present ${p} / ${Object.keys(cur).length}`;
+}
+$('#tBody').onclick=e=>{const t=e.target.closest('.tog');if(!t||e.target.tagName!=='BUTTON')return;cur[t.dataset.k]=e.target.classList.contains('p');paint()};
+$('#allP').onclick=()=>{Object.keys(cur).forEach(k=>cur[k]=true);paint()};
+$('#allA').onclick=()=>{Object.keys(cur).forEach(k=>cur[k]=false);paint()};
+['tDate','tDept','tSem','tShift','tSub'].forEach(i=>$('#'+i).addEventListener('change',drawTake));
+$('#tSub').addEventListener('input',()=>{if(find($('#tDate').value,$('#tSub').value.trim(),$('#tDept').value,$('#tSem').value,$('#tShift').value))drawTake()});
+$('#saveAtt').onclick=()=>{
+  const date=$('#tDate').value,dept=$('#tDept').value,semester=$('#tSem').value,shift=$('#tShift').value,subject=$('#tSub').value.trim(),m=$('#tMsg');
+  if(!date||!subject||!Object.keys(cur).length){m.textContent='Date, department, semester, shift and subject are required.';m.className='msg e';return}
+  const ex=find(date,subject,dept,semester,shift);
+  if(ex)ex.marks={...cur};else db.sessions.push({date,subject,dept,semester,shift,marks:{...cur}});
+  save();fillDeptSelects();m.textContent=`Saved ✓ ${subject} · Sem ${semester} · ${shift} · ${date}`;m.className='msg';
+};
+
+// ===== রিপোর্ট: শতাংশ = (present ÷ মোট ক্লাস) × ১০০ =====
+function fillReportSubjects(){
+  const sub=$('#rSub').value,dept=$('#rDept').value,sem=$('#rSem').value,shift=$('#rShift').value;
+  const subs=[...new Set(db.sessions.filter(s=>s.dept===dept&&s.semester===sem&&s.shift===shift).map(s=>s.subject))];
+  $('#rSub').innerHTML='<option value="">All subjects</option>'+subs.map(s=>`<option>${esc(s)}</option>`).join('');
+  $('#rSub').value=subs.includes(sub)?sub:'';
+}
+['rDept','rSem','rShift'].forEach(i=>$('#'+i).onchange=fillReportSubjects);
+let lastRows=[];
+function report(){
+  const from=$('#rFrom').value,to=$('#rTo').value,dept=$('#rDept').value,sem=$('#rSem').value,shift=$('#rShift').value,sub=$('#rSub').value;
+  if(!from||!to||from>to){$('#rEmpty').textContent='Choose a valid date range (From ≤ To).';$('#rEmpty').hidden=false;$('#rBody').innerHTML='';return}
+  const ss=db.sessions.filter(s=>s.dept===dept&&s.semester===sem&&s.shift===shift&&s.date>=from&&s.date<=to&&(!sub||s.subject===sub));
+  lastRows=inClass(dept,sem,shift).map(st=>{
+    const k=skey(st),mine=ss.filter(s=>k in s.marks),total=mine.length,pres=mine.filter(s=>s.marks[k]).length;
+    return{roll:st.roll,name:st.name,shift:st.shift,real:st.real,dept,sem,total,pres,pct:total?pres/total*100:null};
+  });
+  $('#rInfo').textContent=`${dept} · Sem ${sem} · ${shift} · ${ss.length} class(es) · ${from} → ${to}`;
+  $('#rEmpty').hidden=ss.length>0&&lastRows.length>0;
+  if(!ss.length)$('#rEmpty').textContent='No attendance recorded in this range.';
+  $('#rBody').innerHTML=lastRows.map(r=>`<tr><td>${esc(r.roll)}</td><td>${esc(r.name)||'—'}</td><td><span class="sh">${esc(r.real)}</span></td><td>${r.total}</td><td>${r.pres}</td><td>${r.pct===null?'<span class="muted">—</span>':`<span class="pb"><i style="width:${r.pct}%"></i></span><span class="${r.pct<75?'low':'good'}">${r.pct.toFixed(1)}%</span>`}</td></tr>`).join('');
+}
+$('#gen').onclick=report;
+$('#csv').onclick=()=>{
+  if(!lastRows.length)return;
+  const c=['Roll,Name,Department,Semester,Shift,Classes,Present,Percent',...lastRows.map(r=>[r.roll,r.name,r.dept,r.sem,r.real,r.total,r.pres,r.pct===null?'':r.pct.toFixed(1)].map(v=>`"${v}"`).join(','))].join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download='attendance-report.csv';a.click();
+};
+
+// ===== স্টুডেন্ট পেজ: ডিপার্টমেন্ট অনুযায়ী আলাদা আলাদা দেখানো =====
+// প্রতি ডিপার্টমেন্ট একটা বক্স; ভেতরে সেমিস্টার + শিফট অনুযায়ী ছোট ছোট গ্রুপ
+function drawStu(){
+  const f=$('#vDept').value,ds=depts().filter(d=>!f||d===f);
+  if(!ds.length){$('#sList').innerHTML='<div class="empty">No students yet.</div>';return}
+  $('#sList').innerHTML=ds.map(d=>{
+    const all=db.students.filter(s=>s.dept===d),groups={};
+    all.forEach(s=>{const g=s.semester+'|'+s.shift;(groups[g]=groups[g]||[]).push(s)});
+    const gk=Object.keys(groups).sort((a,b)=>{const [as,ah]=a.split('|'),[bs,bh]=b.split('|');return as-bs||SHIFTS.indexOf(ah)-SHIFTS.indexOf(bh)});
+    const body=gk.map(g=>{
+      const [sem,sh]=g.split('|'),list=groups[g].sort(byRoll);
+      return `<div class="grp"><h4>Semester ${esc(sem)} · ${esc(sh)} · ${list.length} student(s)</h4><div class="tw"><table><thead><tr><th>Roll</th><th>Name</th><th>Shift</th><th></th></tr></thead><tbody>`+
+        list.map(s=>`<tr><td>${esc(s.roll)}</td><td>${esc(s.name)||'—'}</td><td><span class="sh">${esc(s.real)}</span></td><td><button data-i="${db.students.indexOf(s)}">Delete</button></td></tr>`).join('')+`</tbody></table></div></div>`;
+    }).join('');
+    return `<details class="dept" open><summary><b>${esc(d)}</b><span class="muted">${all.length} student(s)</span></summary>${body}</details>`;
+  }).join('');
+}
+$('#vDept').onchange=drawStu;
+function refresh(){drawStu();fillDeptSelects();drawTake()}
+
+$('#sAdd').onclick=()=>{
+  const roll=$('#sRoll').value.trim(),name=$('#sName').value.trim(),dept=$('#sDept').value.trim(),semester=$('#sSem').value,shift=$('#sShift').value,m=$('#sMsg');
+  m.className='msg e';
+  if(!roll||!name||!dept){m.textContent='Roll, name and department are required.';return}
+  // রোল ইউনিক হবে ডিপার্টমেন্ট + সেমিস্টার + শিফটের ভেতরে
+  if(db.students.some(s=>s.roll===roll&&s.dept.toLowerCase()===dept.toLowerCase()&&s.semester===semester&&s.shift===shift)){m.textContent='This roll already exists in that department, semester and shift.';return}
+  const same=db.students.find(s=>s.dept.toLowerCase()===dept.toLowerCase());
+  const real=shift==='Combined'?$('#sReal').value:shift;   // Combined হলে আসল শিফট আলাদা করে নেওয়া
+  db.students.push({roll,name,dept:same?same.dept:dept,semester,shift,real});save();
+  ['sRoll','sName'].forEach(i=>$('#'+i).value='');
+  m.textContent='Student added ✓';m.className='msg';refresh();
+};
+$('#bAdd').onclick=()=>{
+  const from=parseInt($('#bFrom').value,10),to=parseInt($('#bTo').value,10),dept=$('#bDept').value.trim(),semester=$('#bSem').value,shift=$('#bShift').value,m=$('#bMsg');
+  m.className='msg e';
+  if(!dept||isNaN(from)||isNaN(to)||from<1||to<from||to-from>499){m.textContent='Enter a valid roll range and department.';return}
+  const same=db.students.find(s=>s.dept.toLowerCase()===dept.toLowerCase()),dn=same?same.dept:dept;
+  const w=Math.max(2,String(to).length);let added=0;
+  for(let n=from;n<=to;n++){
+    const roll=String(n).padStart(w,'0');
+    if(db.students.some(s=>s.roll===roll&&s.dept===dn&&s.semester===semester&&s.shift===shift))continue;
+    db.students.push({roll,name:'',dept:dn,semester,shift,real:shift==='Combined'?$('#bReal').value:shift});added++;
+  }
+  save();m.textContent=`${added} roll(s) added to ${dn} · Sem ${semester} · ${shift} ✓`;m.className='msg';refresh();
+};
+$('#sList').onclick=e=>{
+  const i=e.target.dataset.i;if(i===undefined||!confirm('Delete this student?'))return;
+  db.students.splice(+i,1);save();refresh();
+};
+$('#theme').onclick=()=>{const r=document.documentElement;r.dataset.theme=getComputedStyle(r).colorScheme==='dark'?'light':'dark'};
+
+// ===== শুরু =====
+const now=new Date();
+$('#tDate').value=dstr(now);$('#rTo').value=dstr(now);
+$('#rFrom').value=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-01';
+fillDeptSelects();drawTake();drawStu();
+</script>
+</body>
+</html>

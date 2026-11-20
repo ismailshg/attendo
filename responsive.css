@@ -1,0 +1,89 @@
+/* ===== responsive.css: মোবাইল ও ট্যাবলেট স্টাইল ===== */
+/* এই ফাইল মূল <style> এর পরে লোড হয়, তাই এখানকার নিয়ম আগেরগুলোকে ওভাররাইড করে */
+
+/* ট্যাবলেট (৭৬৮px ও ছোট) */
+@media (max-width: 768px) {
+  main { padding: 12px; }
+  header { padding: 10px 12px; }
+  .card { padding: 12px; }
+}
+
+/* মোবাইল (৬৪০px ও ছোট) */
+@media (max-width: 640px) {
+  h1 { font-size: 1rem; }
+
+  /* হেডার: টাইটেলের নিচে মেনু; মেনু এক লাইনে, দরকারে পাশে স্ক্রল */
+  header { flex-direction: column; align-items: stretch; gap: 8px; }
+  nav { flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+  nav button { flex: 0 0 auto; }
+
+  /* ফর্ম: দুই কলাম; Add বাটন পুরো প্রস্থে */
+  .filters { grid-template-columns: 1fr 1fr; }
+  .filters > button { grid-column: 1 / -1; }
+  .hint { font-size: .8rem; }
+  .row label { min-width: 0 !important; width: 100%; }
+
+  /* ইনপুট ও বাটন: টাচের জন্য বড়। ১৬px হলে iPhone এ জুম হয় না */
+  input, select, button { font-size: 16px; min-height: 44px; touch-action: manipulation; }
+
+  .tw table { min-width: 0; }
+  th, td { padding: 10px 8px; }
+
+  /* ---- হাজিরা: প্রতি স্টুডেন্ট একটা কার্ড ---- */
+  #take thead { display: none; }
+  #take table, #take tbody { display: block; }
+  #take tbody tr {
+    display: grid; grid-template-columns: auto 1fr auto;
+    grid-template-areas: "roll name shift" "status status status";
+    gap: 8px 10px; align-items: center;
+    padding: 12px; border-bottom: 1px solid var(--line);
+  }
+  #take tbody tr:last-child { border-bottom: 0; }
+  #take td { padding: 0; border: 0; white-space: normal; }
+  #take td:nth-child(1) { grid-area: roll; font-weight: 700; }
+  #take td:nth-child(2) { grid-area: name; }
+  #take td:nth-child(3) { grid-area: shift; }
+  #take td:nth-child(4) { grid-area: status; }
+  #take .tog { display: flex; width: 100%; }
+  #take .tog button { flex: 1; padding: 10px; }
+
+  /* Save বাটনের সারি: নিচে আটকে থাকে, স্ক্রল না করেই চাপা যায় */
+  #take .row {
+    position: sticky; bottom: 0; z-index: 5;
+    background: var(--bg); border-top: 1px solid var(--line);
+    padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px)); margin-top: 0;
+  }
+  #take .row button { flex: 1 1 auto; }
+  #saveAtt { flex: 1 1 100%; }
+  #cnt { flex: 1 1 100%; text-align: center; }
+
+  /* ---- রিপোর্ট: প্রতি স্টুডেন্ট একটা কার্ড ---- */
+  #report thead { display: none; }
+  #report table, #report tbody { display: block; }
+  #report tbody tr {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px 10px; align-items: center;
+    padding: 12px; border-bottom: 1px solid var(--line);
+  }
+  #report tbody tr:last-child { border-bottom: 0; }
+  #report td { padding: 0; border: 0; white-space: normal; }
+  #report td:nth-child(1) { grid-column: 1;     grid-row: 1; font-weight: 700; }
+  #report td:nth-child(2) { grid-column: 2 / 4; grid-row: 1; }
+  #report td:nth-child(3) { grid-column: 4;     grid-row: 1; text-align: right; }
+  #report td:nth-child(4) { grid-column: 1 / 2; grid-row: 2; font-size: .85rem; }
+  #report td:nth-child(5) { grid-column: 2 / 3; grid-row: 2; font-size: .85rem; }
+  #report td:nth-child(6) { grid-column: 3 / 5; grid-row: 2; }
+  #report td:nth-child(4)::before { content: "Classes "; color: var(--muted); }
+  #report td:nth-child(5)::before { content: "Present "; color: var(--muted); }
+  #report .pb { width: 60px; }
+
+  /* ---- স্টুডেন্ট পেজ ---- */
+  #stu td { white-space: normal; }
+  .dept > summary { padding: 12px; }
+  .grp { padding: 0 8px 10px; }
+}
+
+/* খুব ছোট ফোন (৩৮০px ও ছোট): ফর্ম এক কলাম */
+@media (max-width: 380px) {
+  .filters { grid-template-columns: 1fr; }
+}
