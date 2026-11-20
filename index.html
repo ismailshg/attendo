@@ -184,7 +184,7 @@ const byRoll=(a,b)=>a.roll.localeCompare(b.roll,undefined,{numeric:true});
 // Combined বাছলে Combined হিসেবে যোগ করা সবাই একই তালিকায় আসে (আসল শিফট real এ লেখা থাকে)
 const inClass=(dept,sem,shift)=>db.students
   .filter(s=>s.dept===dept&&s.semester===sem&&s.shift===shift)
-  .sort(byRoll);
+  // .sort(byRoll);
 const find=(date,sub,dept,sem,shift)=>db.sessions.find(x=>x.date===date&&x.dept===dept&&x.semester===sem&&x.shift===shift&&x.subject.toLowerCase()===sub.toLowerCase());
 
 // সেমিস্টার ও শিফটের অপশন
@@ -281,7 +281,7 @@ function drawStu(){
     all.forEach(s=>{const g=s.semester+'|'+s.shift;(groups[g]=groups[g]||[]).push(s)});
     const gk=Object.keys(groups).sort((a,b)=>{const [as,ah]=a.split('|'),[bs,bh]=b.split('|');return as-bs||SHIFTS.indexOf(ah)-SHIFTS.indexOf(bh)});
     const body=gk.map(g=>{
-      const [sem,sh]=g.split('|'),list=groups[g].sort(byRoll);
+      const [sem,sh]=g.split('|'),list=groups[g];    //removed .sort(byRoll)
       return `<div class="grp"><h4>Semester ${esc(sem)} · ${esc(sh)} · ${list.length} student(s)</h4><div class="tw"><table><thead><tr><th>Roll</th><th>Name</th><th>Shift</th><th></th></tr></thead><tbody>`+
         list.map(s=>`<tr><td>${esc(s.roll)}</td><td>${esc(s.name)||'—'}</td><td><span class="sh">${esc(s.real)}</span></td><td><button data-i="${db.students.indexOf(s)}">Delete</button></td></tr>`).join('')+`</tbody></table></div></div>`;
     }).join('');
