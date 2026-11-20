@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Attendo</title>
 <link rel="icon" type="image/png" href="favicon.png">
+
 <style>
+  .mk input{width:84px;padding:6px 8px}
+.nomk .mk{display:none}
 :root{--bg:#f4f6fb;--card:#fff;--text:#1e2433;--muted:#6b7280;--line:#e5e7eb;--pri:#0b7285;--pri-t:#fff;--ok:#2f9e44;--bad:#e03131;color-scheme:light}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11161d;--card:#1a212b;--text:#e8ecf3;--muted:#9aa5b5;--line:#2a3340;--pri:#3bc9db;--pri-t:#0d1217;color-scheme:dark}}
 :root[data-theme="dark"]{--bg:#11161d;--card:#1a212b;--text:#e8ecf3;--muted:#9aa5b5;--line:#2a3340;--pri:#3bc9db;--pri-t:#0d1217;color-scheme:dark}
@@ -106,8 +109,9 @@ body:not(.locked) #login{display:none}
     <label>Subject<select id="rSub"><option value="">All subjects</option></select></label>
   </div>
   <div class="row"><button class="btn" id="gen">Show Report</button><button id="csv">Export CSV</button><span class="muted" id="rInfo"></span></div></div>
-  <div class="tw"><table><thead><tr><th>Roll</th><th>Name</th><th>Shift</th><th>Classes</th><th>Present</th><th>Attendance</th></tr></thead><tbody id="rBody"></tbody></table>
+  <div class="tw"><table id="rTable" class="nomk"><thead><tr><th>Roll</th><th>Name</th><th>Shift</th><th>Classes</th><th>Present</th><th>Attendance</th><th class="mk">T.C.</th><th class="mk">P.C.</th></tr></thead><tbody id="rBody"></tbody></table>
   <div class="empty" id="rEmpty">Select a date range and press “Show Report”.</div></div>
+  <div class="row" id="mkRow" hidden><button class="btn" id="saveMk">Save Marks</button><span class="msg" id="mkMsg"></span></div>
 </section>
 
 <!-- ৩) স্টুডেন্ট -->
@@ -160,7 +164,10 @@ const firebaseConfig={
 };
 firebase.initializeApp(firebaseConfig);
 const auth=firebase.auth(), fs=firebase.firestore();
-let db={students:[],sessions:[]};
+let db={students:[],sessions:[],marks:[]};
+const MAX={tc:40,pc:25};
+const mid=(dept,sem,shift,sub)=>[dept,sem,shift,sub.toLowerCase()].join('|').replace(/\//g,'_');
+let curMk={};
 // প্রতি ক্লাসের হাজিরা আলাদা document; ID = তারিখ|ডিপার্টমেন্ট|সেমিস্টার|শিফট|সাবজেক্ট
 const sid=s=>[s.date,s.dept,s.semester,s.shift,s.subject.toLowerCase()].join('|').replace(/\//g,'_');
 async function loadAll(){
@@ -169,6 +176,8 @@ async function loadAll(){
   db.students.forEach(s=>{s.real=s.real||(s.shift==='Combined'?'1st':s.shift)});
   const ss=await fs.collection('sessions').get();
   db.sessions=ss.docs.map(d=>d.data());
+  const mk=await fs.collection('marks').get();
+  db.marks=mk.docs.map(d=>d.data());
 }
 function save(){return fs.collection('meta').doc('students').set({list:db.students}).catch(e=>alert('Save failed: '+e.message))}
 function saveSession(s){return fs.collection('sessions').doc(sid(s)).set(s).catch(e=>alert('Save failed: '+e.message))}
@@ -183,7 +192,7 @@ const byRoll=(a,b)=>a.roll.localeCompare(b.roll,undefined,{numeric:true});
 // ডিপার্টমেন্ট + সেমিস্টার + শিফট অনুযায়ী ফিল্টার
 // Combined বাছলে Combined হিসেবে যোগ করা সবাই একই তালিকায় আসে (আসল শিফট real এ লেখা থাকে)
 const inClass=(dept,sem,shift)=>db.students
-  .filter(s=>s.dept===dept&&s.semester===sem&&s.shift===shift)
+  .filter(s=>s.dept===dept&&s.semester===sem&&s.shift===shift);
   // .sort(byRoll);
 const find=(date,sub,dept,sem,shift)=>db.sessions.find(x=>x.date===date&&x.dept===dept&&x.semester===sem&&x.shift===shift&&x.subject.toLowerCase()===sub.toLowerCase());
 
@@ -253,21 +262,51 @@ function fillReportSubjects(){
 let lastRows=[];
 function report(){
   const from=$('#rFrom').value,to=$('#rTo').value,dept=$('#rDept').value,sem=$('#rSem').value,shift=$('#rShift').value,sub=$('#rSub').value;
-  if(!from||!to||from>to){$('#rEmpty').textContent='Choose a valid date range (From ≤ To).';$('#rEmpty').hidden=false;$('#rBody').innerHTML='';return}
+  if(!from||!to||from>to){$('#rEmpty').textContent='Choose a valid date range (From ≤ To).';$('#rEmpty').hidden=false;$('#rBody').innerHTML='';$('#mkRow').hidden=true;return}
   const ss=db.sessions.filter(s=>s.dept===dept&&s.semester===sem&&s.shift===shift&&s.date>=from&&s.date<=to&&(!sub||s.subject===sub));
+  const saved=sub?db.marks.find(x=>x.id===mid(dept,sem,shift,sub)):null;
+  curMk=saved?JSON.parse(JSON.stringify(saved.m||{})):{};
   lastRows=inClass(dept,sem,shift).map(st=>{
-    const k=skey(st),mine=ss.filter(s=>k in s.marks),total=mine.length,pres=mine.filter(s=>s.marks[k]).length;
-    return{roll:st.roll,name:st.name,shift:st.shift,real:st.real,dept,sem,total,pres,pct:total?pres/total*100:null};
+    const k=skey(st),mine=ss.filter(s=>k in s.marks),total=mine.length,pres=mine.filter(s=>s.marks[k]).length,mm=curMk[k]||{};
+    return{key:k,roll:st.roll,name:st.name,shift:st.shift,real:st.real,dept,sem,total,pres,pct:total?pres/total*100:null,tc:mm.tc??'',pc:mm.pc??''};
   });
-  $('#rInfo').textContent=`${dept} · Sem ${sem} · ${shift} · ${ss.length} class(es) · ${from} → ${to}`;
+  $('#rInfo').textContent=`${dept} · Sem ${sem} · ${shift} · ${ss.length} class(es) · ${from} → ${to}`+(sub?'':' · T.C./P.C. মার্ক দিতে একটা Subject বাছুন');
   $('#rEmpty').hidden=ss.length>0&&lastRows.length>0;
   if(!ss.length)$('#rEmpty').textContent='No attendance recorded in this range.';
-  $('#rBody').innerHTML=lastRows.map(r=>`<tr><td>${esc(r.roll)}</td><td>${esc(r.name)||'—'}</td><td><span class="sh">${esc(r.real)}</span></td><td>${r.total}</td><td>${r.pres}</td><td>${r.pct===null?'<span class="muted">—</span>':`<span class="pb"><i style="width:${r.pct}%"></i></span><span class="${r.pct<75?'low':'good'}">${r.pct.toFixed(1)}%</span>`}</td></tr>`).join('');
+  $('#rTable').classList.toggle('nomk',!sub);
+  $('#mkRow').hidden=!sub||!lastRows.length;$('#mkMsg').textContent='';
+  $('#rBody').innerHTML=lastRows.map(r=>`<tr><td>${esc(r.roll)}</td><td>${esc(r.name)||'—'}</td><td><span class="sh">${esc(r.real)}</span></td><td>${r.total}</td><td>${r.pres}</td><td>${r.pct===null?'<span class="muted">—</span>':`<span class="pb"><i style="width:${r.pct}%"></i></span><span class="${r.pct<75?'low':'good'}">${r.pct.toFixed(1)}%</span>`}</td>`+
+    `<td class="mk"><input type="number" min="0" max="${MAX.tc}" step="any" data-k="${esc(r.key)}" data-f="tc" value="${r.tc}"></td>`+
+    `<td class="mk"><input type="number" min="0" max="${MAX.pc}" step="any" data-k="${esc(r.key)}" data-f="pc" value="${r.pc}"></td></tr>`).join('');
 }
+
 $('#gen').onclick=report;
+
+$('#rBody').addEventListener('input',e=>{
+  const i=e.target,f=i.dataset.f;if(!f)return;
+  const v=i.value;
+  i.style.borderColor=(v!==''&&(+v<0||+v>MAX[f]))?'var(--bad)':'';
+  (curMk[i.dataset.k]=curMk[i.dataset.k]||{})[f]=v===''?'':+v;
+});
+$('#saveMk').onclick=async()=>{
+  const dept=$('#rDept').value,sem=$('#rSem').value,shift=$('#rShift').value,sub=$('#rSub').value,m=$('#mkMsg');
+  if(!sub)return;
+  for(const k in curMk)for(const f of ['tc','pc']){
+    const v=curMk[k][f];
+    if(v!==''&&v!=null&&(v<0||v>MAX[f])){m.textContent=`${f.toUpperCase()} সর্বোচ্চ ${MAX[f]}, সীমার বাইরে মার্ক আছে`;m.className='msg e';return}
+  }
+  const id=mid(dept,sem,shift,sub);
+  const doc=JSON.parse(JSON.stringify({id,dept,semester:sem,shift,subject:sub,m:curMk}));
+  try{
+    await fs.collection('marks').doc(id).set(doc);
+    const i=db.marks.findIndex(x=>x.id===id);if(i>=0)db.marks[i]=doc;else db.marks.push(doc);
+    m.textContent='Marks saved ✓';m.className='msg';
+  }catch(e){m.textContent='Save failed: '+e.message;m.className='msg e'}
+};
+
 $('#csv').onclick=()=>{
   if(!lastRows.length)return;
-  const c=['Roll,Name,Department,Semester,Shift,Classes,Present,Percent',...lastRows.map(r=>[r.roll,r.name,r.dept,r.sem,r.real,r.total,r.pres,r.pct===null?'':r.pct.toFixed(1)].map(v=>`"${v}"`).join(','))].join('\n');
+  const c=['Roll,Name,Department,Semester,Shift,Classes,Present,Percent,TC,PC',...lastRows.map(r=>[r.roll,r.name,r.dept,r.sem,r.real,r.total,r.pres,r.pct===null?'':r.pct.toFixed(1),r.tc,r.pc].map(v=>`"${v}"`).join(','))].join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download='attendance-report.csv';a.click();
 };
 
