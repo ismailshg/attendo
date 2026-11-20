@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Attendance System</title>
 <style>
 :root{--bg:#f4f6fb;--card:#fff;--text:#1e2433;--muted:#6b7280;--line:#e5e7eb;--pri:#0b7285;--pri-t:#fff;--ok:#2f9e44;--bad:#e03131;color-scheme:light}
@@ -44,12 +44,16 @@ tr:last-child td{border-bottom:0}
 .dept>summary::-webkit-details-marker{display:none}
 .grp{padding:0 12px 12px}
 .grp h4{margin:12px 4px 8px;font-size:.85rem;color:var(--muted)}
+.locked main,.locked nav{display:none}
+body:not(.locked) #login{display:none}
 [hidden]{display:none!important}
 </style>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="responsive.css">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 </head>
-<body>
+<body class="locked">
 <header>
   <h1>📋 <span>Attendance</span> System</h1>
   <nav>
@@ -57,8 +61,16 @@ tr:last-child td{border-bottom:0}
     <button class="tab" data-t="report">Report</button>
     <button class="tab" data-t="stu">Students</button>
     <button id="theme" aria-label="Toggle theme">🌓</button>
+    <button id="logout">Logout</button>
   </nav>
 </header>
+<div id="login" class="card" style="max-width:380px;margin:40px auto">
+  <h2 style="font-size:1.1rem;margin-bottom:10px">Teacher Login</h2>
+  <label>Email<input id="lEmail" type="email" autocomplete="username"></label>
+  <label style="margin-top:10px">Password<input id="lPass" type="password" autocomplete="current-password"></label>
+  <div class="row"><button class="btn" id="lBtn">Login</button></div>
+  <div class="msg e" id="lMsg"></div>
+</div>
 <main>
 
 <!-- ১) হাজিরা নেওয়া: তারিখ + ডিপার্টমেন্ট + সেমিস্টার + শিফট + সাবজেক্ট -->
@@ -71,7 +83,7 @@ tr:last-child td{border-bottom:0}
     <label>Subject<input id="tSub" list="subs" placeholder="e.g. Networking"></label>
     <datalist id="subs"></datalist>
   </div>
-  <!-- <div class="hint">Combined বাছলে Combined হিসেবে যোগ করা সবাই একসাথে আসবে, প্রতি রোলের পাশে তার আসল শিফট (1st/2nd) দেখাবে। হিসাব হবে সবাই মিলিয়ে।</div></div> --> <br>
+  <div class="hint">Combined বাছলে Combined হিসেবে যোগ করা সবাই একসাথে আসবে, প্রতি রোলের পাশে তার আসল শিফট (1st/2nd) দেখাবে। হিসাব হবে সবাই মিলিয়ে।</div></div>
   <div class="tw"><table><thead><tr><th>Roll</th><th>Name</th><th>Shift</th><th>Status</th></tr></thead><tbody id="tBody"></tbody></table>
   <div class="empty" id="tEmpty" hidden>No students for this department, semester and shift. Add some in the Students tab.</div></div>
   <div class="row">
@@ -109,7 +121,7 @@ tr:last-child td{border-bottom:0}
     <label id="sRealW" hidden>Actual shift<select id="sReal"></select></label>
     <button class="btn" id="sAdd">Add Student</button>
   </div>
-  <!-- <div class="hint">যে ডিপার্টমেন্টে দুই শিফট একসাথে চলে, Shift এ Combined দিন। তখন "Actual shift" এ ওই স্টুডেন্ট আসলে কোন শিফটের (1st/2nd) সেটা দিন। সবাই একই তালিকায় থাকবে, কিন্তু প্রত্যেকের আসল শিফট লেখা থাকবে।</div> -->
+  <div class="hint">যে ডিপার্টমেন্টে দুই শিফট একসাথে চলে, Shift এ Combined দিন। তখন "Actual shift" এ ওই স্টুডেন্ট আসলে কোন শিফটের (1st/2nd) সেটা দিন। সবাই একই তালিকায় থাকবে, কিন্তু প্রত্যেকের আসল শিফট লেখা থাকবে।</div>
   <div class="msg" id="sMsg"></div></div>
 
   <div class="card"><b>Bulk add by roll range</b> <span class="muted">(নাম ছাড়াই শুধু রোল)</span>
@@ -138,24 +150,27 @@ const seed={students:[
  {roll:'01',name:'Rahim Uddin',dept:'CSE',semester:'1',shift:'1st'},{roll:'02',name:'Nusrat Jahan',dept:'CSE',semester:'1',shift:'1st'},
  {roll:'01',name:'Tanvir Ahmed',dept:'CSE',semester:'1',shift:'2nd'},{roll:'02',name:'Sadia Akter',dept:'CSE',semester:'1',shift:'2nd'},
  {roll:'01',name:'Karim Hasan',dept:'EEE',semester:'1',shift:'Combined'},{roll:'02',name:'Mim Chowdhury',dept:'EEE',semester:'1',shift:'Combined',real:'2nd'}],sessions:[]};
-let db=load();
-// আসল শিফট (real): Combined স্টুডেন্টের ক্ষেত্রে 1st/2nd; অন্যদের ক্ষেত্রে শিফটই আসল শিফট
-db.students.forEach(s=>{s.real=s.real||(s.shift==='Combined'?'1st':s.shift)});
-function load(){
-  try{
-    const d=JSON.parse(localStorage.getItem(K));
-    if(d&&d.students&&d.sessions)return d;
-    // আগের সংস্করণ (att_v2) থেকে ডেটা আনা: সবাইকে 1st শিফটে ধরা হয়
-    const o=JSON.parse(localStorage.getItem('att_v2'));
-    if(o&&o.students&&o.sessions){
-      o.students.forEach(s=>s.shift='1st');
-      o.sessions.forEach(s=>{s.shift='1st';const m={};Object.keys(s.marks).forEach(r=>m['1st:'+r]=s.marks[r]);s.marks=m});
-      return o;
-    }
-  }catch(e){}
-  return JSON.parse(JSON.stringify(seed));
+// ===== Firebase সংযোগ: নিচের config এ নিজের প্রজেক্টের মান বসান =====
+const firebaseConfig={
+  apiKey:"AIzaSyDRe366ArgXb7OmYuK50lFp-owdh3fJm3w",
+  authDomain:"attendance-system-9c025.firebaseapp.com",
+  projectId:"attendance-system-9c025",
+  appId:"1:1059464328749:web:9f2d052556def21103eaa4"
+};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(), fs=firebase.firestore();
+let db={students:[],sessions:[]};
+// প্রতি ক্লাসের হাজিরা আলাদা document; ID = তারিখ|ডিপার্টমেন্ট|সেমিস্টার|শিফট|সাবজেক্ট
+const sid=s=>[s.date,s.dept,s.semester,s.shift,s.subject.toLowerCase()].join('|').replace(/\//g,'_');
+async function loadAll(){
+  const st=await fs.collection('meta').doc('students').get();
+  db.students=st.exists?(st.data().list||[]):[];
+  db.students.forEach(s=>{s.real=s.real||(s.shift==='Combined'?'1st':s.shift)});
+  const ss=await fs.collection('sessions').get();
+  db.sessions=ss.docs.map(d=>d.data());
 }
-function save(){try{localStorage.setItem(K,JSON.stringify(db))}catch(e){}}
+function save(){return fs.collection('meta').doc('students').set({list:db.students}).catch(e=>alert('Save failed: '+e.message))}
+function saveSession(s){return fs.collection('sessions').doc(sid(s)).set(s).catch(e=>alert('Save failed: '+e.message))}
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -203,7 +218,7 @@ let cur={};
 function drawTake(){
   const dept=$('#tDept').value,sem=$('#tSem').value,shift=$('#tShift').value;
   const list=inClass(dept,sem,shift),ex=find($('#tDate').value,$('#tSub').value.trim(),dept,sem,shift);
-  cur={};list.forEach(s=>cur[skey(s)]=ex&&skey(s) in ex.marks?ex.marks[skey(s)]:false);
+  cur={};list.forEach(s=>cur[skey(s)]=ex&&skey(s) in ex.marks?ex.marks[skey(s)]:false);   // নতুন হাজিরায় ডিফল্ট Absent
   $('#tEmpty').hidden=list.length>0;
   $('#tBody').innerHTML=list.map(s=>`<tr><td>${esc(s.roll)}</td><td>${esc(s.name)||'—'}</td><td><span class="sh">${esc(s.real)}</span></td><td><div class="tog" data-k="${esc(skey(s))}"><button class="p">Present</button><button class="a">Absent</button></div></td></tr>`).join('');
   paint();
@@ -223,7 +238,7 @@ $('#saveAtt').onclick=()=>{
   if(!date||!subject||!Object.keys(cur).length){m.textContent='Date, department, semester, shift and subject are required.';m.className='msg e';return}
   const ex=find(date,subject,dept,semester,shift);
   if(ex)ex.marks={...cur};else db.sessions.push({date,subject,dept,semester,shift,marks:{...cur}});
-  save();fillDeptSelects();m.textContent=`Saved ✓ ${subject} · Sem ${semester} · ${shift} · ${date}`;m.className='msg';
+  saveSession(ex||db.sessions[db.sessions.length-1]);fillDeptSelects();m.textContent=`Saved ✓ ${subject} · Sem ${semester} · ${shift} · ${date}`;m.className='msg';
 };
 
 // ===== রিপোর্ট: শতাংশ = (present ÷ মোট ক্লাস) × ১০০ =====
@@ -310,7 +325,18 @@ $('#theme').onclick=()=>{const r=document.documentElement;r.dataset.theme=getCom
 const now=new Date();
 $('#tDate').value=dstr(now);$('#rTo').value=dstr(now);
 $('#rFrom').value=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-01';
-fillDeptSelects();drawTake();drawStu();
+// ===== লগইন ও ডেটা লোড =====
+auth.onAuthStateChanged(async u=>{
+  document.body.classList.toggle('locked',!u);
+  if(!u)return;
+  try{await loadAll()}catch(e){alert('Load failed: '+e.message)}
+  refresh();
+});
+$('#lBtn').onclick=()=>{
+  $('#lMsg').textContent='';
+  auth.signInWithEmailAndPassword($('#lEmail').value.trim(),$('#lPass').value).catch(e=>$('#lMsg').textContent='Login failed: '+e.message);
+};
+$('#logout').onclick=()=>auth.signOut();
 </script>
 </body>
 </html>
