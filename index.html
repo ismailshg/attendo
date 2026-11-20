@@ -203,7 +203,7 @@ let cur={};
 function drawTake(){
   const dept=$('#tDept').value,sem=$('#tSem').value,shift=$('#tShift').value;
   const list=inClass(dept,sem,shift),ex=find($('#tDate').value,$('#tSub').value.trim(),dept,sem,shift);
-  cur={};list.forEach(s=>cur[skey(s)]=ex&&skey(s) in ex.marks?ex.marks[skey(s)]:true);
+  cur={};list.forEach(s=>cur[skey(s)]=ex&&skey(s) in ex.marks?ex.marks[skey(s)]:false);
   $('#tEmpty').hidden=list.length>0;
   $('#tBody').innerHTML=list.map(s=>`<tr><td>${esc(s.roll)}</td><td>${esc(s.name)||'—'}</td><td><span class="sh">${esc(s.real)}</span></td><td><div class="tog" data-k="${esc(skey(s))}"><button class="p">Present</button><button class="a">Absent</button></div></td></tr>`).join('');
   paint();
